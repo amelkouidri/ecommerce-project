@@ -3,30 +3,35 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 const protect = async (req, res, next) => {
-  let token;
+  try {
+    let token;
 
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer ')
-  ) {
-    try {
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith('Bearer ')
+    ) {
       token = req.headers.authorization.split(' ')[1];
-
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      req.user = await User.findById(decoded.id).select('-password');
-
-      if (!req.user) {
-        return res.status(401).json({ message: 'Utilisateur non trouvé' });
-      }
-
-      next();
-    } catch (error) {
-      console.error('Erreur authMiddleware:', error.message);
-      return res.status(401).json({ message: 'Token invalide ou expiré' });
     }
-  } else {
-    return res.status(401).json({ message: 'Non autorisé, pas de token' });
+
+    if (!token) {
+      return res.status(401).json({ message: 'Non autorisé, pas de token' });
+    }
+
+    // Vérifier le token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Récupérer l'utilisateur
+    const user = await User.findById(decoded.id).select('-password');
+
+    if (!user) {
+      return res.status(401).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    req.user = user; // on attache l'utilisateur à la requête
+    next();
+  } catch (err) {
+    console.error('Erreur authMiddleware:', err.message);
+    return res.status(401).json({ message: 'Token invalide ou expiré' });
   }
 };
 
